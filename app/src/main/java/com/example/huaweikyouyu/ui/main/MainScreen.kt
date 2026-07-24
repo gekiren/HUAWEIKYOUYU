@@ -336,7 +336,7 @@ fun HealthDataSection(
                         .padding(top = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Divider()
+                    HorizontalDivider()
                     Text("📊 取得したデータ (${healthData.date})", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     
                     Row(
@@ -349,8 +349,8 @@ fun HealthDataSection(
                             modifier = Modifier.weight(1f)
                         )
                         HealthStatItem(
-                            label = "睡眠時間",
-                            value = "${healthData.sleepDurationMinutes / 60}時間 ${healthData.sleepDurationMinutes % 60}分",
+                            label = "アクティビティ時間",
+                            value = "${healthData.activityDurationMinutes} 分",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -360,13 +360,61 @@ fun HealthDataSection(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         HealthStatItem(
+                            label = "睡眠時間",
+                            value = "${healthData.sleepDurationMinutes / 60}時間 ${healthData.sleepDurationMinutes % 60}分",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
                             label = "平均心拍数",
                             value = "${healthData.averageHeartRate} bpm",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "平均血中酸素",
+                            value = "${healthData.bloodOxygenAverage} %",
                             modifier = Modifier.weight(1f)
                         )
                         HealthStatItem(
                             label = "ストレス",
                             value = "${healthData.stressLevel} / 100",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "体重",
+                            value = if (healthData.weight > 0) "${healthData.weight} kg" else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "体脂肪率",
+                            value = if (healthData.bodyFatRate > 0) "${healthData.bodyFatRate} %" else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "BMI",
+                            value = if (healthData.bmi > 0) "${healthData.bmi}" else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "筋肉量",
+                            value = if (healthData.muscleMass > 0) "${healthData.muscleMass} kg" else "データ無し",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -434,7 +482,7 @@ fun AnalysisSection(
             }
 
             if (analysisResult.isNotEmpty()) {
-                Divider()
+                HorizontalDivider()
                 Text("📝 分析レポートプレビュー:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 
                 Box(

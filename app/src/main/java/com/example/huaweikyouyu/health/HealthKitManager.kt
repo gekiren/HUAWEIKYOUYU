@@ -36,17 +36,25 @@ data class HealthData(
     val averageHeartRate: Int,
     val bloodOxygenAverage: Double,
     val stressLevel: Int,
-    val activityDurationMinutes: Int
+    val activityDurationMinutes: Int,
+    val weight: Double,
+    val bodyFatRate: Double,
+    val bmi: Double,
+    val muscleMass: Double
 ) {
     fun toPromptString(): String {
         return """
             ■ ヘルスデータ（$date）
             - 歩数: $steps 歩
+            - アクティビティ時間: $activityDurationMinutes 分
             - 睡眠時間: ${sleepDurationMinutes / 60}時間 ${sleepDurationMinutes % 60}分
             - 平均心拍数: $averageHeartRate bpm
             - 平均血中酸素レベル: $bloodOxygenAverage %
             - ストレスレベル: $stressLevel (1-100)
-            - アクティビティ時間: $activityDurationMinutes 分
+            - 体重: $weight kg
+            - 体脂肪率: $bodyFatRate %
+            - BMI: $bmi
+            - 筋肉量: $muscleMass kg
         """.trimIndent()
     }
 }
@@ -61,7 +69,8 @@ object HealthKitManager {
         "https://www.huawei.com/healthkit/heartrate.read",
         "https://www.huawei.com/healthkit/spO2.read",
         "https://www.huawei.com/healthkit/stress.read",
-        "https://www.huawei.com/healthkit/activity.read"
+        "https://www.huawei.com/healthkit/activity.read",
+        "https://www.huawei.com/healthkit/weight.read"
     )
 
     /**
@@ -111,7 +120,7 @@ object HealthKitManager {
     fun fetchTodayHealthData(context: Context, isMock: Boolean = true, onResult: (HealthData?) -> Unit) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         if (isMock) {
-            // Generate realistic random mock data
+            // Generate realistic random mock data including weight and body composition
             val mockData = HealthData(
                 date = todayStr,
                 steps = (6000..12000).random(),
@@ -119,7 +128,11 @@ object HealthKitManager {
                 averageHeartRate = (62..78).random(),
                 bloodOxygenAverage = (96..99).random().toDouble(),
                 stressLevel = (15..45).random(),
-                activityDurationMinutes = (10..80).random()
+                activityDurationMinutes = (10..80).random(),
+                weight = (600..850).random().toDouble() / 10.0, // 60.0 to 85.0 kg
+                bodyFatRate = (120..240).random().toDouble() / 10.0, // 12.0 to 24.0 %
+                bmi = (185..255).random().toDouble() / 10.0, // 18.5 to 25.5
+                muscleMass = (450..650).random().toDouble() / 10.0 // 45.0 to 65.0 kg
             )
             onResult(mockData)
         } else {
@@ -272,6 +285,44 @@ object HealthKitManager {
             Log.e(TAG, "Error fetching activity duration", e)
         }
 
+        // 7. Fetch Body Weight & Composition (using past 30 days to get the latest reading)
+        val calendarForWeight = Calendar.getInstance()
+        val endWeightTime = calendarForWeight.timeInMillis
+        calendarForWeight.add(Calendar.DAY_OF_YEAR, -30) // Look back 30 days
+        val startWeightTime = calendarForWeight.timeInMillis
+
+        var weight = 0.0
+        var bodyFatRate = 0.0
+        var bmi = 0.0
+        var muscleMass = 0.0
+
+        try {
+            val weightOptions = ReadOptions.Builder()
+                .read(DataType.DT_INSTANTANEOUS_BODY_WEIGHT)
+                .setTimeRange(startWeightTime, endWeightTime, TimeUnit.MILLISECONDS)
+                .build()
+            val weightResult: ReadReply = dataController.read(weightOptions).awaitHMS()
+            val sampleSets: List<SampleSet> = weightResult.sampleSets
+            var latestPoint: SamplePoint? = null
+            
+            sampleSets.forEach { sampleSet ->
+                sampleSet.samplePoints.forEach { point ->
+                    if (latestPoint == null || point.getEndTime(TimeUnit.MILLISECONDS) > latestPoint!!.getEndTime(TimeUnit.MILLISECONDS)) {
+                        latestPoint = point
+                    }
+                }
+            }
+            
+            latestPoint?.let { point ->
+                weight = point.getFieldValue(Field.FIELD_BODY_WEIGHT).asDoubleValue()
+                bodyFatRate = point.getFieldValue(Field.FIELD_BODY_FAT_RATE).asDoubleValue()
+                bmi = point.getFieldValue(Field.FIELD_BMI).asDoubleValue()
+                muscleMass = point.getFieldValue(Field.FIELD_MUSCLE_MASS).asDoubleValue()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching body weight/composition data", e)
+        }
+
         HealthData(
             date = dateStr,
             steps = steps,
@@ -279,7 +330,11 @@ object HealthKitManager {
             averageHeartRate = avgHeartRate,
             bloodOxygenAverage = avgSpO2,
             stressLevel = stressLevel,
-            activityDurationMinutes = activityMinutes
+            activityDurationMinutes = activityMinutes,
+            weight = weight,
+            bodyFatRate = bodyFatRate,
+            bmi = bmi,
+            muscleMass = muscleMass
         )
     }
 }
