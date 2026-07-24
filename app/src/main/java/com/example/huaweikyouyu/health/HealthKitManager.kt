@@ -187,7 +187,7 @@ object HealthKitManager {
      * Fetch health data for today.
      * Supports both Mock mode and real HMS Health Kit SDK querying.
      */
-    fun fetchTodayHealthData(context: Context, isMock: Boolean = true, onResult: (HealthData?) -> Unit) {
+    fun fetchTodayHealthData(context: Context, isMock: Boolean = true, onResult: (HealthData?, String?) -> Unit) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         if (isMock) {
             // Generate realistic random mock data including all parameters
@@ -247,16 +247,31 @@ object HealthKitManager {
                 vo2Max = (380..520).random().toDouble() / 10.0, // 38.0 to 52.0 ml/kg/min
                 skinTemperature = (315..335).random().toDouble() / 10.0 // 31.5 to 33.5 ℃
             )
-            onResult(mockData)
+            onResult(mockData, null)
         } else {
             // Launch coroutine on Main dispatcher to perform async queries
             CoroutineScope(Dispatchers.Main).launch {
                 try {
                     val data = queryHMSHealthData(context, todayStr)
-                    onResult(data)
+                    onResult(data, null)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to query HMS Health data", e)
-                    onResult(null)
+                    val errorMsg = e.message ?: ""
+                    var isAuthError = errorMsg.contains("102") || errorMsg.contains("60005")
+                    
+                    // Also check for HMS ApiException status codes
+                    if (e is com.huawei.hms.common.ApiException) {
+                        if (e.statusCode == 102 || e.statusCode == 60005) {
+                            isAuthError = true
+                        }
+                    }
+                    
+                    val friendlyMsg = if (isAuthError) {
+                        "エラー 102: HUAWEI ヘルスケアアプリ側で本アプリとの共有連携が未許可です。\n\n【解決手順】\n1. スマホの「ヘルスケア」アプリを開く\n2. 「自分」>「設定」>「データ共有」>「HUAWEI KYOUYU」を選択\n3. データ共有権限をすべてON（許可）にしてください。"
+                    } else {
+                        "ヘルスデータ取得エラー: ${e.localizedMessage}"
+                    }
+                    onResult(null, friendlyMsg)
                 }
             }
         }

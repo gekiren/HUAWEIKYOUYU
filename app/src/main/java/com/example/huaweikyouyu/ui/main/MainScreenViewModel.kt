@@ -68,24 +68,24 @@ class MainScreenViewModel : ViewModel() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         val isMock = _uiState.value.isMockMode
         if (isMock) {
-            HealthKitManager.fetchTodayHealthData(context, true) { data ->
+            HealthKitManager.fetchTodayHealthData(context, true) { data, errorMsg ->
                 _uiState.update {
                     if (data != null) {
                         it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータ（テスト）を取得しました")
                     } else {
-                        it.copy(isLoading = false, errorMessage = "ヘルスデータの取得に失敗しました。")
+                        it.copy(isLoading = false, errorMessage = errorMsg ?: "ヘルスデータの取得に失敗しました。")
                     }
                 }
             }
         } else {
             HealthKitManager.requestHealthPermissions(context) { permitted ->
                 if (permitted) {
-                    HealthKitManager.fetchTodayHealthData(context, false) { data ->
+                    HealthKitManager.fetchTodayHealthData(context, false) { data, errorMsg ->
                         _uiState.update {
                             if (data != null) {
                                 it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータを取得しました")
                             } else {
-                                it.copy(isLoading = false, errorMessage = "ヘルスデータの取得に失敗しました。HMS設定を確認してください。")
+                                it.copy(isLoading = false, errorMessage = errorMsg ?: "ヘルスデータの取得に失敗しました。HMS設定を確認してください。")
                             }
                         }
                     }
