@@ -29,6 +29,15 @@ object GeminiClient {
      * @param callback Callback function with result (Success, Result string / Error message)
      */
     fun generateContent(apiKey: String, prompt: String, callback: (Boolean, String) -> Unit) {
+        generateContentWithRetry(apiKey, prompt, 0, callback)
+    }
+
+    private fun generateContentWithRetry(
+        apiKey: String,
+        prompt: String,
+        retryCount: Int,
+        callback: (Boolean, String) -> Unit
+    ) {
         if (apiKey.isEmpty()) {
             callback(false, "API Key is empty")
             return
@@ -53,16 +62,40 @@ object GeminiClient {
 
             client.newCall(request).enqueue(object : okhttp3.Callback {
                 override fun onFailure(call: okhttp3.Call, e: IOException) {
-                    Log.e(TAG, "Request failed", e)
-                    callback(false, "Network error: ${e.localizedMessage}")
+                    Log.e(TAG, "Request failed (retryCount: $retryCount)", e)
+                    if (retryCount < 3) {
+                        val delay = (1000 * Math.pow(2.0, retryCount.toDouble())).toLong()
+                        Log.i(TAG, "Retrying request after $delay ms due to network failure...")
+                        try {
+                            Thread.sleep(delay)
+                        } catch (sleepEx: InterruptedException) {
+                            Log.w(TAG, "Retry delay interrupted", sleepEx)
+                        }
+                        generateContentWithRetry(apiKey, prompt, retryCount + 1, callback)
+                    } else {
+                        callback(false, "Network error: ${e.localizedMessage}")
+                    }
                 }
 
                 override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                     response.use {
                         if (!response.isSuccessful) {
                             val errorBody = response.body?.string() ?: "Unknown error"
-                            Log.e(TAG, "Unsuccessful response: $errorBody")
-                            callback(false, "API error (${response.code}): $errorBody")
+                            Log.e(TAG, "Unsuccessful response (${response.code}): $errorBody")
+                            
+                            // Retry on 503 (Service Unavailable) or 429 (Too Many Requests)
+                            if ((response.code == 503 || response.code == 429) && retryCount < 3) {
+                                val delay = (1500 * Math.pow(2.0, retryCount.toDouble())).toLong()
+                                Log.i(TAG, "Retrying request after $delay ms due to API error ${response.code}...")
+                                try {
+                                    Thread.sleep(delay)
+                                } catch (sleepEx: InterruptedException) {
+                                    Log.w(TAG, "Retry delay interrupted", sleepEx)
+                                }
+                                generateContentWithRetry(apiKey, prompt, retryCount + 1, callback)
+                            } else {
+                                callback(false, "API error (${response.code}): $errorBody")
+                            }
                             return
                         }
 
