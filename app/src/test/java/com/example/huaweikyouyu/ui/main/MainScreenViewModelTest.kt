@@ -4,20 +4,13 @@ import org.junit.Test
 
 class MainScreenViewModelTest {
   @Test
-  fun dumpDataTypeConstants() {
-      println("--- DUMPING STATIC FIELDS OF DataType ---")
+  fun dumpSettingControllerMethods() {
+      println("--- DUMPING METHODS OF SettingController ---")
       try {
-          val clazz = Class.forName("com.huawei.hms.hihealth.data.DataType")
-          clazz.declaredFields.forEach { field ->
-              if (java.lang.reflect.Modifier.isStatic(field.modifiers)) {
-                  try {
-                      field.isAccessible = true
-                      val value = field.get(null)
-                      println("DataType: ${field.name} = $value")
-                  } catch (e: Exception) {
-                      println("DataType: ${field.name} (Error: ${e.message})")
-                  }
-              }
+          val clazz = Class.forName("com.huawei.hms.hihealth.SettingController")
+          clazz.declaredMethods.forEach { method ->
+              val params = method.parameterTypes.map { it.name }.joinToString(", ")
+              println("Method: ${method.name}($params) -> ${method.returnType.name}")
           }
       } catch (e: Exception) {
           println("Error: ${e.message}")

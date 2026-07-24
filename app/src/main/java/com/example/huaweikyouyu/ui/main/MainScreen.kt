@@ -1,6 +1,7 @@
 package com.example.huaweikyouyu.ui.main
 
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -56,12 +57,33 @@ fun MainScreen(
         }
     }
 
-    // Huawei ID Sign-in Launcher
+    // 2段階目: Health Kit 権限同意画面のランチャー
+    val healthKitAuthLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            viewModel.fetchHealthData(context)
+        } else {
+            viewModel.onAuthResult(false, context)
+        }
+    }
+
+    // 1段階目: Huawei ID Sign-in Launcher
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val success = com.example.huaweikyouyu.health.HealthKitManager.parseAuthResult(result.data)
-        viewModel.onAuthResult(success, context)
+        val authHuaweiId = com.example.huaweikyouyu.health.HealthKitManager.parseAuthResult(result.data)
+        if (authHuaweiId != null) {
+            try {
+                val intent = com.example.huaweikyouyu.health.HealthKitManager.getHealthKitAuthIntent(context, authHuaweiId)
+                healthKitAuthLauncher.launch(intent)
+            } catch (e: Exception) {
+                Log.e("MainScreen", "Failed to launch Health Kit Auth", e)
+                viewModel.onAuthResult(false, context)
+            }
+        } else {
+            viewModel.onAuthResult(false, context)
+        }
     }
 
     Scaffold(

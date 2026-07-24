@@ -177,10 +177,18 @@ object HealthKitManager {
     /**
      * Parse authorization result from Intent
      */
-    fun parseAuthResult(data: Intent?): Boolean {
-        if (data == null) return false
+    fun parseAuthResult(data: Intent?): AuthHuaweiId? {
+        if (data == null) return null
         val authTask = HuaweiIdAuthManager.parseAuthResultFromIntent(data)
-        return authTask.isSuccessful
+        return if (authTask.isSuccessful) authTask.result else null
+    }
+
+    /**
+     * Get the health kit authorization Intent (SettingController authorization screen)
+     */
+    fun getHealthKitAuthIntent(context: Context, authHuaweiId: AuthHuaweiId): Intent {
+        val settingController = HuaweiHiHealth.getSettingController(context, authHuaweiId)
+        return settingController.requestAuthorizationIntent(SCOPES, true)
     }
 
     /**
