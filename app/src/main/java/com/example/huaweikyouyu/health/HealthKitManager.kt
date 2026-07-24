@@ -1,6 +1,7 @@
 package com.example.huaweikyouyu.health
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import com.huawei.hmf.tasks.Task
 import com.huawei.hms.hihealth.HuaweiHiHealth
@@ -159,6 +160,27 @@ object HealthKitManager {
             Log.e(TAG, "Error requesting permissions", e)
             onResult(false)
         }
+    }
+
+    /**
+     * Get the authorization sign-in Intent for explicit login
+     */
+    fun getSignInIntent(context: Context): Intent {
+        val scopeList = SCOPES.map { Scope(it) }
+        val authParams = HuaweiIdAuthParamsHelper(HuaweiIdAuthParams.DEFAULT_AUTH_REQUEST_PARAM)
+            .setScopeList(scopeList)
+            .createParams()
+        val authService = HuaweiIdAuthManager.getService(context, authParams)
+        return authService.signInIntent
+    }
+
+    /**
+     * Parse authorization result from Intent
+     */
+    fun parseAuthResult(data: Intent?): Boolean {
+        if (data == null) return false
+        val authTask = HuaweiIdAuthManager.parseAuthResultFromIntent(data)
+        return authTask.isSuccessful
     }
 
     /**

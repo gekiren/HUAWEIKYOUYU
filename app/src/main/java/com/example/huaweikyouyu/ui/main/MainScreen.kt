@@ -56,6 +56,14 @@ fun MainScreen(
         }
     }
 
+    // Huawei ID Sign-in Launcher
+    val signInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val success = com.example.huaweikyouyu.health.HealthKitManager.parseAuthResult(result.data)
+        viewModel.onAuthResult(success, context)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -125,7 +133,12 @@ fun MainScreen(
                     healthData = state.healthData,
                     isMockMode = state.isMockMode,
                     onMockModeToggle = { viewModel.toggleMockMode(it) },
-                    onFetchClick = { viewModel.fetchHealthData(context) }
+                    onFetchClick = {
+                        viewModel.fetchHealthData(context, onSignInRequired = {
+                            val intent = com.example.huaweikyouyu.health.HealthKitManager.getSignInIntent(context)
+                            signInLauncher.launch(intent)
+                        })
+                    }
                 )
 
                 // 3. Gemini Analysis & Action Card

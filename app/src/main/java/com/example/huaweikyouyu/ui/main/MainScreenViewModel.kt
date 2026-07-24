@@ -64,7 +64,7 @@ class MainScreenViewModel : ViewModel() {
         _uiState.update { it.copy(isMockMode = isMock) }
     }
 
-    fun fetchHealthData(context: Context) {
+    fun fetchHealthData(context: Context, onSignInRequired: () -> Unit = {}) {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         val isMock = _uiState.value.isMockMode
         if (isMock) {
@@ -90,9 +90,18 @@ class MainScreenViewModel : ViewModel() {
                         }
                     }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "Health Kitへのアクセス権限がありません。") }
+                    _uiState.update { it.copy(isLoading = false) }
+                    onSignInRequired()
                 }
             }
+        }
+    }
+
+    fun onAuthResult(success: Boolean, context: Context) {
+        if (success) {
+            fetchHealthData(context)
+        } else {
+            _uiState.update { it.copy(errorMessage = "HUAWEI 認証がキャンセルされたか、失敗しました。") }
         }
     }
 
