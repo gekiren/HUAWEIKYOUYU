@@ -22,6 +22,7 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        maven { url = uri("https://developer.huawei.com/repo/") }
     }
 }
 
