@@ -86,24 +86,18 @@ class MainScreenViewModel : ViewModel() {
                 }
             }
         } else {
-            HealthKitManager.requestHealthPermissions(context) { permitted ->
-                if (permitted) {
-                    HealthKitManager.fetchTodayHealthData(context, false) { data, errorMsg, authHuaweiId ->
-                        if (data != null) {
-                            _uiState.update {
-                                it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータを取得しました")
-                            }
-                        } else if (authHuaweiId != null) {
-                            // 102 error: silently launch the SettingController consent screen
-                            _uiState.update { it.copy(isLoading = false) }
-                            _healthKitAuthRequired.tryEmit(authHuaweiId)
-                        } else {
-                            _uiState.update {
-                                it.copy(isLoading = false, errorMessage = errorMsg ?: "ヘルスデータの取得に失敗しました。HMS設定を確認してください。")
-                            }
-                        }
+            // Real data: call directly (silentSignIn is handled inside fetchTodayHealthData)
+            HealthKitManager.fetchTodayHealthData(context, false) { data, errorMsg, authHuaweiId ->
+                if (data != null) {
+                    _uiState.update {
+                        it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータを取得しました")
                     }
+                } else if (authHuaweiId != null) {
+                    // 102 error with valid HUAWEI ID: auto-launch SettingController consent screen
+                    _uiState.update { it.copy(isLoading = false) }
+                    _healthKitAuthRequired.tryEmit(authHuaweiId)
                 } else {
+                    // silentSignIn failed: user needs to sign in interactively
                     _uiState.update { it.copy(isLoading = false) }
                     onSignInRequired()
                 }
