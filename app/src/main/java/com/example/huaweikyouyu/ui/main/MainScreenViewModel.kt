@@ -159,6 +159,68 @@ class MainScreenViewModel : ViewModel() {
         }
     }
 
+    fun saveRawDataToObsidian(context: Context) {
+        val healthData = _uiState.value.healthData
+        if (healthData == null) {
+            _uiState.update { it.copy(errorMessage = "保存するヘルスデータがありません。先にデータを取り込んでください。") }
+            return
+        }
+
+        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+
+        // Format raw health data into Markdown
+        val markdownContent = """
+            
+            ## 📊 ヘルスデータレポート (${healthData.date} 取得)
+            
+            ### 🏃 アクティビティ & 睡眠
+            - **歩数**: ${healthData.steps} 歩
+            - **アクティビティ時間**: ${healthData.activityDurationMinutes} 分
+            - **移動距離**: ${if (healthData.distanceMeters > 0) String.format(Locale.US, "%.1f m", healthData.distanceMeters) else "0.0 m"}
+            - **消費カロリー**: ${if (healthData.activeCaloriesBurned > 0) String.format(Locale.US, "%.1f kcal", healthData.activeCaloriesBurned) else "0.0 kcal"}
+            - **中高強度運動時間**: ${healthData.moderateHighIntensityDurationMinutes} 分
+            - **平均心拍数**: ${healthData.averageHeartRate} bpm
+            - **平均血中酸素**: ${healthData.bloodOxygenAverage} %
+            - **ストレス**: ${healthData.stressLevel} / 100
+            - **総睡眠時間**: ${healthData.sleepDurationMinutes / 60}時間 ${healthData.sleepDurationMinutes % 60}分
+            - **深い睡眠**: ${healthData.deepSleepMinutes} 分
+            - **浅い睡眠**: ${healthData.lightSleepMinutes} 分
+            - **レム睡眠**: ${healthData.remSleepMinutes} 分
+            - **覚醒時間**: ${healthData.awakeMinutes} 分
+            
+            ### ⚖️ 体重 & 基本体組成
+            - **体重**: ${if (healthData.weight > 0) String.format(Locale.US, "%.1f kg", healthData.weight) else "データ無し"}
+            - **BMI**: ${if (healthData.bmi > 0) String.format(Locale.US, "%.1f", healthData.bmi) else "データ無し"}
+            - **体脂肪率**: ${if (healthData.bodyFatRate > 0) String.format(Locale.US, "%.1f %%", healthData.bodyFatRate) else "データ無し"}
+            - **体脂肪量**: ${if (healthData.bodyFat > 0) String.format(Locale.US, "%.1f kg", healthData.bodyFat) else "データ無し"}
+            - **筋肉量**: ${if (healthData.muscleMass > 0) String.format(Locale.US, "%.1f kg", healthData.muscleMass) else "データ無し"}
+            - **骨格筋量**: ${if (healthData.skeletalMuscleMass > 0) String.format(Locale.US, "%.1f kg", healthData.skeletalMuscleMass) else "データ無し"}
+            - **骨量 (骨塩量)**: ${if (healthData.boneSalt > 0) String.format(Locale.US, "%.2f kg", healthData.boneSalt) else "データ無し"}
+            - **タンパク質率**: ${if (healthData.proteinRate > 0) String.format(Locale.US, "%.1f %%", healthData.proteinRate) else "データ無し"}
+            
+            ### 🧬 水分 & その他測定値
+            - **水分量**: ${if (healthData.moisture > 0) String.format(Locale.US, "%.1f L", healthData.moisture) else "データ無し"}
+            - **水分率**: ${if (healthData.moistureRate > 0) String.format(Locale.US, "%.1f %%", healthData.moistureRate) else "データ無し"}
+            - **基礎代謝量**: ${if (healthData.basalMetabolism > 0) String.format(Locale.US, "%.0f kcal", healthData.basalMetabolism) else "データ無し"}
+            - **内臓脂肪レベル**: ${if (healthData.visceralFatLevel > 0) String.format(Locale.US, "%.1f", healthData.visceralFatLevel) else "データ無し"}
+            - **体内年齢**: ${if (healthData.bodyAge > 0) "${healthData.bodyAge} 才" else "データ無し"}
+            - **体組成スコア**: ${if (healthData.bodyScore > 0) String.format(Locale.US, "%.1f 点", healthData.bodyScore) else "データ無し"}
+            - **VO2 Max**: ${if (healthData.vo2Max > 0) String.format(Locale.US, "%.1f ml/kg", healthData.vo2Max) else "データ無し"}
+            - **皮膚温度**: ${if (healthData.skinTemperature > 0) String.format(Locale.US, "%.1f ℃", healthData.skinTemperature) else "データ無し"}
+            - **インピーダンス**: ${if (healthData.impedance > 0) String.format(Locale.US, "%.1f Ω", healthData.impedance) else "データ無し"}
+        """.trimIndent()
+
+        val success = ObsidianStorageManager.saveDailyNote(context, todayStr, markdownContent)
+        _uiState.update {
+            if (success) {
+                it.copy(isLoading = false, successMessage = "生データをObsidianに保存しました（ファイル名: $todayStr.md）")
+            } else {
+                it.copy(isLoading = false, errorMessage = "Obsidianへの保存に失敗しました。フォルダ設定を確認してください。")
+            }
+        }
+    }
+
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }

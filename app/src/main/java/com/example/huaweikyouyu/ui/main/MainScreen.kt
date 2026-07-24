@@ -133,7 +133,8 @@ fun MainScreen(
                     analysisResult = state.analysisResult,
                     isDataLoaded = state.healthData != null,
                     onRunAnalysis = { viewModel.runAiAnalysis(context) },
-                    onSaveToObsidian = { viewModel.saveToObsidian(context) }
+                    onSaveToObsidian = { viewModel.saveToObsidian(context) },
+                    onSaveRawData = { viewModel.saveRawDataToObsidian(context) }
                 )
             }
 
@@ -618,7 +619,8 @@ fun AnalysisSection(
     analysisResult: String,
     isDataLoaded: Boolean,
     onRunAnalysis: () -> Unit,
-    onSaveToObsidian: () -> Unit
+    onSaveToObsidian: () -> Unit,
+    onSaveRawData: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -645,6 +647,18 @@ fun AnalysisSection(
                 )
             ) {
                 Text("AI要約を生成 (gemini-3.5-flash)")
+            }
+
+            Button(
+                onClick = onSaveRawData,
+                enabled = isDataLoaded,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Text("生データを直接保存")
             }
 
             if (analysisResult.isNotEmpty()) {
