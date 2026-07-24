@@ -7,8 +7,12 @@ import com.example.huaweikyouyu.ai.GeminiClient
 import com.example.huaweikyouyu.health.HealthData
 import com.example.huaweikyouyu.health.HealthKitManager
 import com.example.huaweikyouyu.storage.ObsidianStorageManager
+import com.huawei.hms.support.hwid.result.AuthHuaweiId
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.text.SimpleDateFormat
@@ -29,6 +33,10 @@ data class MainUiState(
 class MainScreenViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    // Emits AuthHuaweiId when Health Kit authorization consent is required (102 error)
+    private val _healthKitAuthRequired = MutableSharedFlow<AuthHuaweiId>(extraBufferCapacity = 1)
+    val healthKitAuthRequired: SharedFlow<AuthHuaweiId> = _healthKitAuthRequired.asSharedFlow()
 
     private val PREFS_NAME = "gemini_prefs"
     private val KEY_API_KEY = "api_key"
@@ -68,7 +76,7 @@ class MainScreenViewModel : ViewModel() {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         val isMock = _uiState.value.isMockMode
         if (isMock) {
-            HealthKitManager.fetchTodayHealthData(context, true) { data, errorMsg ->
+            HealthKitManager.fetchTodayHealthData(context, true) { data, errorMsg, _ ->
                 _uiState.update {
                     if (data != null) {
                         it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータ（テスト）を取得しました")
@@ -80,11 +88,17 @@ class MainScreenViewModel : ViewModel() {
         } else {
             HealthKitManager.requestHealthPermissions(context) { permitted ->
                 if (permitted) {
-                    HealthKitManager.fetchTodayHealthData(context, false) { data, errorMsg ->
-                        _uiState.update {
-                            if (data != null) {
+                    HealthKitManager.fetchTodayHealthData(context, false) { data, errorMsg, authHuaweiId ->
+                        if (data != null) {
+                            _uiState.update {
                                 it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータを取得しました")
-                            } else {
+                            }
+                        } else if (authHuaweiId != null) {
+                            // 102 error: silently launch the SettingController consent screen
+                            _uiState.update { it.copy(isLoading = false) }
+                            _healthKitAuthRequired.tryEmit(authHuaweiId)
+                        } else {
+                            _uiState.update {
                                 it.copy(isLoading = false, errorMessage = errorMsg ?: "ヘルスデータの取得に失敗しました。HMS設定を確認してください。")
                             }
                         }

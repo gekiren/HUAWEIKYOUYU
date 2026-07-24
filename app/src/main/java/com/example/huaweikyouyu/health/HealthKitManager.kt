@@ -195,7 +195,7 @@ object HealthKitManager {
      * Fetch health data for today.
      * Supports both Mock mode and real HMS Health Kit SDK querying.
      */
-    fun fetchTodayHealthData(context: Context, isMock: Boolean = true, onResult: (HealthData?, String?) -> Unit) {
+    fun fetchTodayHealthData(context: Context, isMock: Boolean = true, onResult: (HealthData?, String?, AuthHuaweiId?) -> Unit) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         if (isMock) {
             // Generate realistic random mock data including all parameters
@@ -255,31 +255,46 @@ object HealthKitManager {
                 vo2Max = (380..520).random().toDouble() / 10.0, // 38.0 to 52.0 ml/kg/min
                 skinTemperature = (315..335).random().toDouble() / 10.0 // 31.5 to 33.5 ℃
             )
-            onResult(mockData, null)
+            onResult(mockData, null, null)
         } else {
             // Launch coroutine on Main dispatcher to perform async queries
             CoroutineScope(Dispatchers.Main).launch {
+                // Retrieve AuthHuaweiId first (outside queryHMSHealthData so we can return it on error)
+                var authHuaweiId: AuthHuaweiId? = null
                 try {
-                    val data = queryHMSHealthData(context, todayStr)
-                    onResult(data, null)
+                    val scopeList = SCOPES.map { Scope(it) }
+                    val authParams = HuaweiIdAuthParamsHelper(HuaweiIdAuthParams.DEFAULT_AUTH_REQUEST_PARAM)
+                        .setScopeList(scopeList)
+                        .createParams()
+                    val authService = HuaweiIdAuthManager.getService(context, authParams)
+                    authHuaweiId = withContext(Dispatchers.IO) { authService.silentSignIn().awaitHMS() }
+                } catch (signInEx: Exception) {
+                    Log.w(TAG, "Silent sign-in failed during data fetch", signInEx)
+                    onResult(null, "HUAWEI ID サインインが必要です。サインインボタンをタップしてください。", null)
+                    return@launch
+                }
+
+                try {
+                    val data = queryHMSHealthData(context, todayStr, authHuaweiId!!)
+                    onResult(data, null, null)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to query HMS Health data", e)
                     val errorMsg = e.message ?: ""
                     var isAuthError = errorMsg.contains("102") || errorMsg.contains("60005")
-                    
+
                     // Also check for HMS ApiException status codes
                     if (e is com.huawei.hms.common.ApiException) {
                         if (e.statusCode == 102 || e.statusCode == 60005) {
                             isAuthError = true
                         }
                     }
-                    
-                    val friendlyMsg = if (isAuthError) {
-                        "エラー 102: HUAWEI ヘルスケアアプリ側で本アプリとの共有連携が未許可です。\n\n【解決手順】\n1. スマホの「ヘルスケア」アプリを開く\n2. 「自分」>「設定」>「データ共有」>「HUAWEI KYOUYU」を選択\n3. データ共有権限をすべてON（許可）にしてください。"
+
+                    if (isAuthError) {
+                        // Return the already-obtained AuthHuaweiId so caller can launch SettingController
+                        onResult(null, "エラー 102: Health Kit 権限の同意が必要です。同意画面を起動します…", authHuaweiId)
                     } else {
-                        "ヘルスデータ取得エラー: ${e.localizedMessage}"
+                        onResult(null, "ヘルスデータ取得エラー: ${e.localizedMessage}", null)
                     }
-                    onResult(null, friendlyMsg)
                 }
             }
         }
@@ -288,15 +303,7 @@ object HealthKitManager {
     /**
      * Internal implementation of querying HMS Health Kit data using Coroutines
      */
-    private suspend fun queryHMSHealthData(context: Context, dateStr: String): HealthData = withContext(Dispatchers.IO) {
-        val scopeList = SCOPES.map { Scope(it) }
-        val authParams = HuaweiIdAuthParamsHelper(HuaweiIdAuthParams.DEFAULT_AUTH_REQUEST_PARAM)
-            .setScopeList(scopeList)
-            .createParams()
-        val authService = HuaweiIdAuthManager.getService(context, authParams)
-        
-        // Retrieve AuthHuaweiId
-        val authHuaweiId: AuthHuaweiId = authService.silentSignIn().awaitHMS()
+    private suspend fun queryHMSHealthData(context: Context, dateStr: String, authHuaweiId: AuthHuaweiId): HealthData = withContext(Dispatchers.IO) {
         val dataController = HuaweiHiHealth.getDataController(context, authHuaweiId)
         
         // Time range for today (from 00:00 to now)

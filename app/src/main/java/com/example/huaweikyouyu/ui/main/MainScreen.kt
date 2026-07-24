@@ -86,6 +86,18 @@ fun MainScreen(
         }
     }
 
+    // 102エラー自動修復: サイレントサインイン済みで権限同意がない場合に自動ポップアップ起動
+    LaunchedEffect(Unit) {
+        viewModel.healthKitAuthRequired.collect { authHuaweiId ->
+            try {
+                val intent = com.example.huaweikyouyu.health.HealthKitManager.getHealthKitAuthIntent(context, authHuaweiId)
+                healthKitAuthLauncher.launch(intent)
+            } catch (e: Exception) {
+                Log.e("MainScreen", "Failed to auto-launch Health Kit Auth on 102 error", e)
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
