@@ -66,19 +66,32 @@ class MainScreenViewModel : ViewModel() {
 
     fun fetchHealthData(context: Context) {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        HealthKitManager.requestHealthPermissions(context) { permitted ->
-            if (permitted) {
-                HealthKitManager.fetchTodayHealthData(context, _uiState.value.isMockMode) { data ->
-                    _uiState.update {
-                        if (data != null) {
-                            it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータを取得しました")
-                        } else {
-                            it.copy(isLoading = false, errorMessage = "ヘルスデータの取得に失敗しました。HMS設定を確認してください。")
-                        }
+        val isMock = _uiState.value.isMockMode
+        if (isMock) {
+            HealthKitManager.fetchTodayHealthData(context, true) { data ->
+                _uiState.update {
+                    if (data != null) {
+                        it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータ（テスト）を取得しました")
+                    } else {
+                        it.copy(isLoading = false, errorMessage = "ヘルスデータの取得に失敗しました。")
                     }
                 }
-            } else {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Health Kitへのアクセス権限がありません。") }
+            }
+        } else {
+            HealthKitManager.requestHealthPermissions(context) { permitted ->
+                if (permitted) {
+                    HealthKitManager.fetchTodayHealthData(context, false) { data ->
+                        _uiState.update {
+                            if (data != null) {
+                                it.copy(healthData = data, isLoading = false, successMessage = "ヘルスデータを取得しました")
+                            } else {
+                                it.copy(isLoading = false, errorMessage = "ヘルスデータの取得に失敗しました。HMS設定を確認してください。")
+                            }
+                        }
+                    }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, errorMessage = "Health Kitへのアクセス権限がありません。") }
+                }
             }
         }
     }
