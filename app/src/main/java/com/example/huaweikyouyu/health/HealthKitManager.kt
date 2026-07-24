@@ -28,6 +28,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.random.Random
 
 data class HealthData(
     val date: String,
@@ -40,7 +41,18 @@ data class HealthData(
     val weight: Double,
     val bodyFatRate: Double,
     val bmi: Double,
-    val muscleMass: Double
+    val muscleMass: Double,
+    val basalMetabolism: Double,
+    val bodyAge: Int,
+    val bodyScore: Double,
+    val visceralFatLevel: Double,
+    val skeletalMuscleMass: Double,
+    val boneSalt: Double,
+    val moisture: Double,
+    val moistureRate: Double,
+    val bodyFat: Double,
+    val proteinRate: Double,
+    val impedance: Double
 ) {
     fun toPromptString(): String {
         return """
@@ -51,10 +63,23 @@ data class HealthData(
             - 平均心拍数: $averageHeartRate bpm
             - 平均血中酸素レベル: $bloodOxygenAverage %
             - ストレスレベル: $stressLevel (1-100)
+            
+            ■ 体組成データ（体重計測定）
             - 体重: $weight kg
-            - 体脂肪率: $bodyFatRate %
             - BMI: $bmi
+            - 体脂肪率: $bodyFatRate %
+            - 体脂肪量: $bodyFat kg
             - 筋肉量: $muscleMass kg
+            - 骨格筋量: $skeletalMuscleMass kg
+            - 骨量 (骨塩量): $boneSalt kg
+            - 水分量: $moisture L
+            - 水分率: $moistureRate %
+            - タンパク質率: $proteinRate %
+            - 基礎代謝量: $basalMetabolism kcal
+            - 内臓脂肪レベル: $visceralFatLevel
+            - 体内年齢: $bodyAge 才
+            - 体組成スコア: $bodyScore 点
+            - インピーダンス: $impedance Ω
         """.trimIndent()
     }
 }
@@ -120,7 +145,23 @@ object HealthKitManager {
     fun fetchTodayHealthData(context: Context, isMock: Boolean = true, onResult: (HealthData?) -> Unit) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         if (isMock) {
-            // Generate realistic random mock data including weight and body composition
+            // Generate realistic random mock data including all 15 weight and body composition parameters
+            val mockWeight = (600..850).random().toDouble() / 10.0 // 60.0 to 85.0 kg
+            val mockBodyFatRate = (120..240).random().toDouble() / 10.0 // 12.0 to 24.0 %
+            val mockBodyFat = mockWeight * (mockBodyFatRate / 100.0)
+            val mockBmi = (185..255).random().toDouble() / 10.0 // 18.5 to 25.5
+            val mockMuscleMass = mockWeight * Random.nextDouble(0.65, 0.75)
+            val mockSkeletalMuscle = mockMuscleMass * 0.58
+            val mockBoneSalt = (22..38).random().toDouble() / 10.0 // 2.2 to 3.8 kg
+            val mockMoisture = mockWeight * Random.nextDouble(0.50, 0.60)
+            val mockMoistureRate = (mockMoisture / mockWeight) * 100.0
+            val mockProteinRate = (140..180).random().toDouble() / 10.0 // 14.0 to 18.0 %
+            val mockBasal = (1300..1800).random().toDouble()
+            val mockVisceral = (40..120).random().toDouble() / 10.0 // 4.0 to 12.0
+            val mockAge = (22..45).random()
+            val mockScore = (720..920).random().toDouble() / 10.0 // 72.0 to 92.0 点
+            val mockImpedance = (4200..5800).random().toDouble() / 10.0 // 420.0 to 580.0 Ω
+
             val mockData = HealthData(
                 date = todayStr,
                 steps = (6000..12000).random(),
@@ -129,10 +170,21 @@ object HealthKitManager {
                 bloodOxygenAverage = (96..99).random().toDouble(),
                 stressLevel = (15..45).random(),
                 activityDurationMinutes = (10..80).random(),
-                weight = (600..850).random().toDouble() / 10.0, // 60.0 to 85.0 kg
-                bodyFatRate = (120..240).random().toDouble() / 10.0, // 12.0 to 24.0 %
-                bmi = (185..255).random().toDouble() / 10.0, // 18.5 to 25.5
-                muscleMass = (450..650).random().toDouble() / 10.0 // 45.0 to 65.0 kg
+                weight = mockWeight,
+                bodyFatRate = mockBodyFatRate,
+                bmi = mockBmi,
+                muscleMass = mockMuscleMass,
+                basalMetabolism = mockBasal,
+                bodyAge = mockAge,
+                bodyScore = mockScore,
+                visceralFatLevel = mockVisceral,
+                skeletalMuscleMass = mockSkeletalMuscle,
+                boneSalt = mockBoneSalt,
+                moisture = mockMoisture,
+                moistureRate = mockMoistureRate,
+                bodyFat = mockBodyFat,
+                proteinRate = mockProteinRate,
+                impedance = mockImpedance
             )
             onResult(mockData)
         } else {
@@ -295,6 +347,17 @@ object HealthKitManager {
         var bodyFatRate = 0.0
         var bmi = 0.0
         var muscleMass = 0.0
+        var basalMetabolism = 0.0
+        var bodyAge = 0
+        var bodyScore = 0.0
+        var visceralFatLevel = 0.0
+        var skeletalMuscleMass = 0.0
+        var boneSalt = 0.0
+        var moisture = 0.0
+        var moistureRate = 0.0
+        var bodyFat = 0.0
+        var proteinRate = 0.0
+        var impedance = 0.0
 
         try {
             val weightOptions = ReadOptions.Builder()
@@ -318,6 +381,17 @@ object HealthKitManager {
                 bodyFatRate = point.getFieldValue(Field.FIELD_BODY_FAT_RATE).asDoubleValue()
                 bmi = point.getFieldValue(Field.FIELD_BMI).asDoubleValue()
                 muscleMass = point.getFieldValue(Field.FIELD_MUSCLE_MASS).asDoubleValue()
+                basalMetabolism = point.getFieldValue(Field.FIELD_BASAL_METABOLISM).asDoubleValue()
+                bodyAge = point.getFieldValue(Field.FIELD_BODY_AGE).asIntValue()
+                bodyScore = point.getFieldValue(Field.FIELD_BODY_SCORE).asDoubleValue()
+                visceralFatLevel = point.getFieldValue(Field.FIELD_VISCERAL_FAT_LEVEL).asDoubleValue()
+                skeletalMuscleMass = point.getFieldValue(Field.FIELD_SKELETAL_MUSCLEL_MASS).asDoubleValue()
+                boneSalt = point.getFieldValue(Field.FIELD_BONE_SALT).asDoubleValue()
+                moisture = point.getFieldValue(Field.FIELD_MOISTURE).asDoubleValue()
+                moistureRate = point.getFieldValue(Field.FIELD_MOISTURE_RATE).asDoubleValue()
+                bodyFat = point.getFieldValue(Field.FIELD_BODY_FAT).asDoubleValue()
+                proteinRate = point.getFieldValue(Field.FIELD_PROTEIN_RATE).asDoubleValue()
+                impedance = point.getFieldValue(Field.FIELD_IMPEDANCE).asDoubleValue()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching body weight/composition data", e)
@@ -334,7 +408,18 @@ object HealthKitManager {
             weight = weight,
             bodyFatRate = bodyFatRate,
             bmi = bmi,
-            muscleMass = muscleMass
+            muscleMass = muscleMass,
+            basalMetabolism = basalMetabolism,
+            bodyAge = bodyAge,
+            bodyScore = bodyScore,
+            visceralFatLevel = visceralFatLevel,
+            skeletalMuscleMass = skeletalMuscleMass,
+            boneSalt = boneSalt,
+            moisture = moisture,
+            moistureRate = moistureRate,
+            bodyFat = bodyFat,
+            proteinRate = proteinRate,
+            impedance = impedance
         )
     }
 }

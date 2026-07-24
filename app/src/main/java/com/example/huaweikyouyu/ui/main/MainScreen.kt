@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import com.example.huaweikyouyu.health.HealthData
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -337,8 +338,10 @@ fun HealthDataSection(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     HorizontalDivider()
-                    Text("📊 取得したデータ (${healthData.date})", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("📊 取得したデータ (${healthData.date})", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     
+                    // 1. アクティビティ & 睡眠
+                    Text("🏃 アクティビティ & 睡眠", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -354,7 +357,6 @@ fun HealthDataSection(
                             modifier = Modifier.weight(1f)
                         )
                     }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -370,7 +372,6 @@ fun HealthDataSection(
                             modifier = Modifier.weight(1f)
                         )
                     }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -387,36 +388,130 @@ fun HealthDataSection(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    // 2. 体重 & 基本体組成
+                    Text("⚖️ 体重 & 基本体組成", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         HealthStatItem(
                             label = "体重",
-                            value = if (healthData.weight > 0) "${healthData.weight} kg" else "データ無し",
+                            value = if (healthData.weight > 0) String.format(Locale.US, "%.1f kg", healthData.weight) else "データ無し",
                             modifier = Modifier.weight(1f)
                         )
                         HealthStatItem(
-                            label = "体脂肪率",
-                            value = if (healthData.bodyFatRate > 0) "${healthData.bodyFatRate} %" else "データ無し",
+                            label = "BMI",
+                            value = if (healthData.bmi > 0) String.format(Locale.US, "%.1f", healthData.bmi) else "データ無し",
                             modifier = Modifier.weight(1f)
                         )
                     }
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         HealthStatItem(
-                            label = "BMI",
-                            value = if (healthData.bmi > 0) "${healthData.bmi}" else "データ無し",
+                            label = "体脂肪率",
+                            value = if (healthData.bodyFatRate > 0) String.format(Locale.US, "%.1f %%", healthData.bodyFatRate) else "データ無し",
                             modifier = Modifier.weight(1f)
                         )
                         HealthStatItem(
-                            label = "筋肉量",
-                            value = if (healthData.muscleMass > 0) "${healthData.muscleMass} kg" else "データ無し",
+                            label = "体脂肪量",
+                            value = if (healthData.bodyFat > 0) String.format(Locale.US, "%.1f kg", healthData.bodyFat) else "データ無し",
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "筋肉量",
+                            value = if (healthData.muscleMass > 0) String.format(Locale.US, "%.1f kg", healthData.muscleMass) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "骨格筋量",
+                            value = if (healthData.skeletalMuscleMass > 0) String.format(Locale.US, "%.1f kg", healthData.skeletalMuscleMass) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "骨量 (骨塩量)",
+                            value = if (healthData.boneSalt > 0) String.format(Locale.US, "%.2f kg", healthData.boneSalt) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "タンパク質率",
+                            value = if (healthData.proteinRate > 0) String.format(Locale.US, "%.1f %%", healthData.proteinRate) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // 3. 水分 & その他測定値
+                    Text("🧬 水分 & その他測定値", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "水分量",
+                            value = if (healthData.moisture > 0) String.format(Locale.US, "%.1f L", healthData.moisture) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "水分率",
+                            value = if (healthData.moistureRate > 0) String.format(Locale.US, "%.1f %%", healthData.moistureRate) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "基礎代謝量",
+                            value = if (healthData.basalMetabolism > 0) String.format(Locale.US, "%.0f kcal", healthData.basalMetabolism) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "内臓脂肪レベル",
+                            value = if (healthData.visceralFatLevel > 0) String.format(Locale.US, "%.1f", healthData.visceralFatLevel) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "体内年齢",
+                            value = if (healthData.bodyAge > 0) "${healthData.bodyAge} 才" else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "体組成スコア",
+                            value = if (healthData.bodyScore > 0) String.format(Locale.US, "%.1f 点", healthData.bodyScore) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "インピーダンス",
+                            value = if (healthData.impedance > 0) String.format(Locale.US, "%.1f Ω", healthData.impedance) else "データ無し",
+                            modifier = Modifier.weight(0.5f)
+                        )
+                        Spacer(modifier = Modifier.weight(0.5f))
                     }
                 }
             } else {
