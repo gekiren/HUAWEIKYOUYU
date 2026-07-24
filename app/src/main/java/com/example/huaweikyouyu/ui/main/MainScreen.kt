@@ -362,8 +362,23 @@ fun HealthDataSection(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         HealthStatItem(
-                            label = "睡眠時間",
-                            value = "${healthData.sleepDurationMinutes / 60}時間 ${healthData.sleepDurationMinutes % 60}分",
+                            label = "移動距離",
+                            value = if (healthData.distanceMeters > 0) String.format(Locale.US, "%.1f m", healthData.distanceMeters) else "0.0 m",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "消費カロリー",
+                            value = if (healthData.activeCaloriesBurned > 0) String.format(Locale.US, "%.1f kcal", healthData.activeCaloriesBurned) else "0.0 kcal",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "中高強度運動時間",
+                            value = "${healthData.moderateHighIntensityDurationMinutes} 分",
                             modifier = Modifier.weight(1f)
                         )
                         HealthStatItem(
@@ -386,6 +401,47 @@ fun HealthDataSection(
                             value = "${healthData.stressLevel} / 100",
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "総睡眠時間",
+                            value = "${healthData.sleepDurationMinutes / 60}時間 ${healthData.sleepDurationMinutes % 60}分",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "深い睡眠",
+                            value = "${healthData.deepSleepMinutes} 分",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "浅い睡眠",
+                            value = "${healthData.lightSleepMinutes} 分",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "レム睡眠",
+                            value = "${healthData.remSleepMinutes} 分",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "覚醒時間",
+                            value = "${healthData.awakeMinutes} 分",
+                            modifier = Modifier.weight(0.5f)
+                        )
+                        Spacer(modifier = Modifier.weight(0.5f))
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -499,6 +555,21 @@ fun HealthDataSection(
                         HealthStatItem(
                             label = "体組成スコア",
                             value = if (healthData.bodyScore > 0) String.format(Locale.US, "%.1f 点", healthData.bodyScore) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HealthStatItem(
+                            label = "VO2 Max",
+                            value = if (healthData.vo2Max > 0) String.format(Locale.US, "%.1f ml/kg", healthData.vo2Max) else "データ無し",
+                            modifier = Modifier.weight(1f)
+                        )
+                        HealthStatItem(
+                            label = "皮膚温度",
+                            value = if (healthData.skinTemperature > 0) String.format(Locale.US, "%.1f ℃", healthData.skinTemperature) else "データ無し",
                             modifier = Modifier.weight(1f)
                         )
                     }

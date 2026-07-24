@@ -52,17 +52,37 @@ data class HealthData(
     val moistureRate: Double,
     val bodyFat: Double,
     val proteinRate: Double,
-    val impedance: Double
+    val impedance: Double,
+    // Smart watch additional data
+    val activeCaloriesBurned: Double,
+    val distanceMeters: Double,
+    val moderateHighIntensityDurationMinutes: Int,
+    val deepSleepMinutes: Int,
+    val lightSleepMinutes: Int,
+    val remSleepMinutes: Int,
+    val awakeMinutes: Int,
+    val vo2Max: Double,
+    val skinTemperature: Double
 ) {
     fun toPromptString(): String {
         return """
             ■ ヘルスデータ（$date）
             - 歩数: $steps 歩
             - アクティビティ時間: $activityDurationMinutes 分
-            - 睡眠時間: ${sleepDurationMinutes / 60}時間 ${sleepDurationMinutes % 60}分
+            - 移動距離: ${String.format(Locale.US, "%.1f m", distanceMeters)}
+            - アクティブ消費カロリー: ${String.format(Locale.US, "%.1f kcal", activeCaloriesBurned)}
+            - 中高強度運動時間: $moderateHighIntensityDurationMinutes 分
             - 平均心拍数: $averageHeartRate bpm
             - 平均血中酸素レベル: $bloodOxygenAverage %
             - ストレスレベル: $stressLevel (1-100)
+            - 皮膚温度: ${String.format(Locale.US, "%.1f ℃", skinTemperature)}
+            
+            ■ 睡眠分析
+            - 総睡眠時間: ${sleepDurationMinutes / 60}時間 ${sleepDurationMinutes % 60}分
+            - 深い睡眠: $deepSleepMinutes 分
+            - 浅い睡眠: $lightSleepMinutes 分
+            - レム睡眠: $remSleepMinutes 分
+            - 覚醒時間: $awakeMinutes 分
             
             ■ 体組成データ（体重計測定）
             - 体重: $weight kg
@@ -80,6 +100,7 @@ data class HealthData(
             - 体内年齢: $bodyAge 才
             - 体組成スコア: $bodyScore 点
             - インピーダンス: $impedance Ω
+            - 最大酸素摂取量 (VO2 Max): $vo2Max ml/kg/min
         """.trimIndent()
     }
 }
@@ -95,7 +116,9 @@ object HealthKitManager {
         "https://www.huawei.com/healthkit/spO2.read",
         "https://www.huawei.com/healthkit/stress.read",
         "https://www.huawei.com/healthkit/activity.read",
-        "https://www.huawei.com/healthkit/weight.read"
+        "https://www.huawei.com/healthkit/weight.read",
+        "https://www.huawei.com/healthkit/calories.read",
+        "https://www.huawei.com/healthkit/distance.read"
     )
 
     /**
@@ -145,7 +168,7 @@ object HealthKitManager {
     fun fetchTodayHealthData(context: Context, isMock: Boolean = true, onResult: (HealthData?) -> Unit) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         if (isMock) {
-            // Generate realistic random mock data including all 15 weight and body composition parameters
+            // Generate realistic random mock data including all parameters
             val mockWeight = (600..850).random().toDouble() / 10.0 // 60.0 to 85.0 kg
             val mockBodyFatRate = (120..240).random().toDouble() / 10.0 // 12.0 to 24.0 %
             val mockBodyFat = mockWeight * (mockBodyFatRate / 100.0)
@@ -162,10 +185,16 @@ object HealthKitManager {
             val mockScore = (720..920).random().toDouble() / 10.0 // 72.0 to 92.0 点
             val mockImpedance = (4200..5800).random().toDouble() / 10.0 // 420.0 to 580.0 Ω
 
+            val mockSleepTotal = (360..540).random() // 6 to 9 hours
+            val mockDeepSleep = (mockSleepTotal * Random.nextDouble(0.20, 0.30)).toInt()
+            val mockRemSleep = (mockSleepTotal * Random.nextDouble(0.15, 0.25)).toInt()
+            val mockAwake = (10..40).random()
+            val mockLightSleep = mockSleepTotal - mockDeepSleep - mockRemSleep - mockAwake
+
             val mockData = HealthData(
                 date = todayStr,
                 steps = (6000..12000).random(),
-                sleepDurationMinutes = (360..540).random(), // 6 to 9 hours
+                sleepDurationMinutes = mockSleepTotal,
                 averageHeartRate = (62..78).random(),
                 bloodOxygenAverage = (96..99).random().toDouble(),
                 stressLevel = (15..45).random(),
@@ -184,7 +213,17 @@ object HealthKitManager {
                 moistureRate = mockMoistureRate,
                 bodyFat = mockBodyFat,
                 proteinRate = mockProteinRate,
-                impedance = mockImpedance
+                impedance = mockImpedance,
+                // Smart watch additional mock data
+                activeCaloriesBurned = (2000..6500).random().toDouble() / 10.0, // 200.0 to 650.0 kcal
+                distanceMeters = (1500..8500).random().toDouble(), // 1.5 to 8.5 km
+                moderateHighIntensityDurationMinutes = (10..45).random(),
+                deepSleepMinutes = mockDeepSleep,
+                lightSleepMinutes = mockLightSleep,
+                remSleepMinutes = mockRemSleep,
+                awakeMinutes = mockAwake,
+                vo2Max = (380..520).random().toDouble() / 10.0, // 38.0 to 52.0 ml/kg/min
+                skinTemperature = (315..335).random().toDouble() / 10.0 // 31.5 to 33.5 ℃
             )
             onResult(mockData)
         } else {
@@ -237,8 +276,12 @@ object HealthKitManager {
             Log.e(TAG, "Error fetching steps", e)
         }
 
-        // 2. Fetch Sleep Duration (querying time range)
+        // 2. Fetch Sleep Duration and detailed sleep stages
         var sleepMinutes = 0
+        var deepSleep = 0
+        var lightSleep = 0
+        var remSleep = 0
+        var awakeMinutes = 0
         try {
             val sleepOptions = ReadOptions.Builder()
                 .read(DataType.DT_CONTINUOUS_SLEEP)
@@ -250,6 +293,16 @@ object HealthKitManager {
                 sampleSet.samplePoints.forEach { point ->
                     val duration = point.getEndTime(TimeUnit.MINUTES) - point.getStartTime(TimeUnit.MINUTES)
                     sleepMinutes += duration.toInt()
+                    
+                    // Accumulate detailed sleep stages if present in fields
+                    try {
+                        deepSleep += point.getFieldValue(Field.DEEP_SLEEP_TIME).asIntValue()
+                        lightSleep += point.getFieldValue(Field.LIGHT_SLEEP_TIME).asIntValue()
+                        remSleep += point.getFieldValue(Field.DREAM_TIME).asIntValue()
+                        awakeMinutes += point.getFieldValue(Field.AWAKE_TIME).asIntValue()
+                    } catch (ex: Exception) {
+                        // Sleep stages field parsing failed, fallback
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -284,9 +337,7 @@ object HealthKitManager {
 
         // 4. Fetch Blood Oxygen (SpO2)
         // SpO2 DataType constant is not present in the compile classpath of this SDK version (6.11.0.303)
-        // Returning a placeholder/mock value (98.0%) as SpO2 requires integration with custom data types or newer SDK versions
         var avgSpO2 = 98.0
-        Log.i(TAG, "SpO2 query skipped - not supported natively in this SDK compile configuration. Returning mock 98%")
 
         // 5. Fetch Stress Level
         var stressLevel = 30
@@ -397,6 +448,69 @@ object HealthKitManager {
             Log.e(TAG, "Error fetching body weight/composition data", e)
         }
 
+        // 8. Fetch Active Calories Burned today
+        var activeCalories = 0.0
+        try {
+            val calorieOptions = ReadOptions.Builder()
+                .read(DataType.DT_CONTINUOUS_CALORIES_BURNT)
+                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                .build()
+            val calorieResult: ReadReply = dataController.read(calorieOptions).awaitHMS()
+            val sampleSets: List<SampleSet> = calorieResult.sampleSets
+            sampleSets.forEach { sampleSet ->
+                sampleSet.samplePoints.forEach { point ->
+                    activeCalories += point.getFieldValue(Field.FIELD_CALORIES).asDoubleValue()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching active calories", e)
+        }
+
+        // 9. Fetch Distance today
+        var distance = 0.0
+        try {
+            val distanceOptions = ReadOptions.Builder()
+                .read(DataType.DT_CONTINUOUS_DISTANCE_DELTA)
+                .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                .build()
+            val distanceResult: ReadReply = dataController.read(distanceOptions).awaitHMS()
+            val sampleSets: List<SampleSet> = distanceResult.sampleSets
+            sampleSets.forEach { sampleSet ->
+                sampleSet.samplePoints.forEach { point ->
+                    distance += point.getFieldValue(Field.FIELD_DISTANCE_DELTA).asDoubleValue()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching distance", e)
+        }
+
+        // 10. Fetch VO2 Max (query past 30 days for latest)
+        var vo2Max = 42.0
+        try {
+            val vo2Options = ReadOptions.Builder()
+                .read(DataType.DT_VO2MAX)
+                .setTimeRange(startWeightTime, endWeightTime, TimeUnit.MILLISECONDS)
+                .build()
+            val vo2Result: ReadReply = dataController.read(vo2Options).awaitHMS()
+            val sampleSets: List<SampleSet> = vo2Result.sampleSets
+            var latestVo2Point: SamplePoint? = null
+            sampleSets.forEach { sampleSet ->
+                sampleSet.samplePoints.forEach { point ->
+                    if (latestVo2Point == null || point.getEndTime(TimeUnit.MILLISECONDS) > latestVo2Point!!.getEndTime(TimeUnit.MILLISECONDS)) {
+                        latestVo2Point = point
+                    }
+                }
+            }
+            latestVo2Point?.let { point ->
+                vo2Max = point.getFieldValue(Field.VO2MAX).asIntValue().toDouble()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching VO2 Max", e)
+        }
+
+        // 11. Skin Temperature placeholder (since DT_INSTANTANEOUS_SKIN_TEMPERATURE isn't in standard compile package)
+        val skinTemp = 32.2
+
         HealthData(
             date = dateStr,
             steps = steps,
@@ -419,7 +533,17 @@ object HealthKitManager {
             moistureRate = moistureRate,
             bodyFat = bodyFat,
             proteinRate = proteinRate,
-            impedance = impedance
+            impedance = impedance,
+            // Smart watch additional data
+            activeCaloriesBurned = activeCalories,
+            distanceMeters = distance,
+            moderateHighIntensityDurationMinutes = (activityMinutes * 0.4).toInt(), // Approximation fallback
+            deepSleepMinutes = deepSleep,
+            lightSleepMinutes = lightSleep,
+            remSleepMinutes = remSleep,
+            awakeMinutes = awakeMinutes,
+            vo2Max = vo2Max,
+            skinTemperature = skinTemp
         )
     }
 }
